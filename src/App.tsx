@@ -9,6 +9,7 @@ function App() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -17,15 +18,43 @@ function App() {
       [name]: value
     }));
   };
+
   const formRef = useRef<HTMLDivElement>(null);
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
 
-    // Simulation d'envoi
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // Remplacez cette URL par l'URL de votre backend
+      const API_URL = 'https://votre-backend.com/api/visitors';
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          phone: formData.phone,
+          email: formData.email || null, // Envoie null si email vide
+          visitReason: formData.visitReason,
+          timestamp: new Date().toISOString(), // Horodatage de la visite
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'enregistrement');
+      }
+
+      const data = await response.json();
+      console.log('Visiteur enregistré:', data);
+
+      // Afficher le message de succès
       setShowSuccess(true);
+
+      // Réinitialiser le formulaire
       setFormData({
         fullName: '',
         phone: '',
@@ -33,10 +62,17 @@ function App() {
         visitReason: ''
       });
 
+      // Masquer le message de succès après 4 secondes
       setTimeout(() => {
         setShowSuccess(false);
       }, 4000);
-    }, 1500);
+
+    } catch (err) {
+      console.error('Erreur:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Liste des motifs de visite
@@ -52,7 +88,7 @@ function App() {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden font-[Urbanist]">
-      {/* Image de fond - Remplacez par votre propre image */}
+      {/* Image de fond */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{
@@ -83,6 +119,23 @@ function App() {
             <div>
               <p className="text-[#1A1A1A] font-medium">Visiteur enregistré avec succès</p>
               <p className="text-[#666] text-sm">L'accueil a bien été notifié</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message d'erreur */}
+      {error && (
+        <div className="fixed top-8 left-1/2 transform -translate-x-1/2 z-50 animate-slideDown">
+          <div className="bg-red-50/95 backdrop-blur-sm border border-red-300 px-8 py-4 shadow-2xl flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-red-900 font-medium">Erreur d'enregistrement</p>
+              <p className="text-red-700 text-sm">{error}</p>
             </div>
           </div>
         </div>
