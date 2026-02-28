@@ -53,7 +53,7 @@ interface ApiResponse {
 }
 
 // Configuration de l'API
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = 'https://api.tifydecor.org/api/v1';
 
 const DevisForm: React.FC = () => {
   const [formData, setFormData] = useState<DevisData>({
