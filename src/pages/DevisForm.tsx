@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Définition des types
 interface Materiel {
@@ -83,6 +83,73 @@ const DevisForm: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
+
+  // États pour la barre d'installation PWA
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBar, setShowInstallBar] = useState<boolean>(false);
+  const [isPWAInstalled, setIsPWAInstalled] = useState<boolean>(false);
+
+  // Détecter si l'application est déjà installée ou est en mode PWA
+  useEffect(() => {
+    // Vérifier si l'application est en mode standalone (installée)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true;
+
+    setIsPWAInstalled(isStandalone);
+
+    // Écouter l'événement beforeinstallprompt
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Empêcher l'affichage automatique de la bannière
+      e.preventDefault();
+      // Stocker l'événement pour l'utiliser plus tard
+      setDeferredPrompt(e);
+      // Afficher la barre d'installation
+      setShowInstallBar(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Écouter l'événement d'installation réussie
+    const handleAppInstalled = () => {
+      setShowInstallBar(false);
+      setIsPWAInstalled(true);
+      setDeferredPrompt(null);
+      console.log('PWA installée avec succès');
+    };
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  // Fonction pour installer la PWA
+  const installPWA = async () => {
+    if (!deferredPrompt) return;
+
+    // Afficher la boîte de dialogue d'installation
+    deferredPrompt.prompt();
+
+    // Attendre la réponse de l'utilisateur
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      console.log('Utilisateur a accepté l\'installation');
+    } else {
+      console.log('Utilisateur a refusé l\'installation');
+    }
+
+    // Réinitialiser l'événement
+    setDeferredPrompt(null);
+    setShowInstallBar(false);
+  };
+
+  // Fonction pour fermer la barre d'installation
+  const closeInstallBar = () => {
+    setShowInstallBar(false);
+  };
 
   // Télécharger automatiquement le PDF après enregistrement
   const telechargerPDF = async (devisId: number, nomClient: string): Promise<void> => {
@@ -571,6 +638,7 @@ const DevisForm: React.FC = () => {
   const styles = {
     container: { background: `linear-gradient(135deg, #F5F1EB 0%, #E8D9CC 100%)` },
     header: { background: `linear-gradient(135deg, #8B5A2B 0%, #C89B66 100%)` },
+    installBar: { background: `linear-gradient(135deg, #8A9A5B 0%, #A9BA7C 100%)` }
   };
 
   const getSubmitLabel = () => {
@@ -580,10 +648,57 @@ const DevisForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen py-8 px-4" style={styles.container}>
+    <div className="min-h-screen py-8 px-4 relative" style={styles.container}>
+      {/* Barre d'installation PWA */}
+      {showInstallBar && !isPWAInstalled && (
+        <div className="fixed top-0 left-0 right-0 z-50 shadow-lg animate-slideDown">
+          <div className="text-white px-4 py-3 flex items-center justify-between" style={styles.installBar}>
+            <div className="flex items-center space-x-3">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14h-2v-6h2v6zm0-8h-2V6h2v2zm6 6.59L14.59 16 12 13.41 13.41 12 16 14.59 17.59 13 19 14.41 17.59 15.8 19 17.19 17.59 18.59 16 17.19 14.41 18.59 13 17.19 14.41 15.8 13 14.41 14.41 13 17 15.59 18.59 14.19z" />
+              </svg>
+              <div>
+                <p className="font-medium">Installer l'application HARMONIA ÉQUILIBRE</p>
+                <p className="text-sm opacity-90">Installez cette application sur votre appareil pour un accès rapide et une utilisation hors ligne</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={installPWA}
+                className="px-4 py-2 bg-white text-gray-800 rounded-lg font-medium hover:bg-opacity-90 transition flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Installer</span>
+              </button>
+              <button
+                onClick={closeInstallBar}
+                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Espace pour compenser la barre d'installation */}
+      {showInstallBar && !isPWAInstalled && <div className="h-16"></div>}
+
       <div className="max-w-7xl mx-auto">
-        {/* En-tête */}
-        <div className="text-white rounded-2xl shadow-xl p-8 mb-8" style={styles.header}>
+        {/* En-tête avec badge PWA */}
+        <div className="text-white rounded-2xl shadow-xl p-8 mb-8 relative" style={styles.header}>
+          {isPWAInstalled && (
+            <div className="absolute top-4 right-4 bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm flex items-center">
+              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14h-2v-6h2v6zm0-8h-2V6h2v2zm6 6.59L14.59 16 12 13.41 13.41 12 16 14.59 17.59 13 19 14.41 17.59 15.8 19 17.19 17.59 18.59 16 17.19 14.41 18.59 13 17.19 14.41 15.8 13 14.41 14.41 13 17 15.59 18.59 14.19z" />
+              </svg>
+              <span>Application installée</span>
+            </div>
+          )}
           <h1 className="text-4xl font-serif font-bold text-center mb-2" style={{ color: '#FFFFFF' }}>
             HARMONIA ÉQUILIBRE
           </h1>
@@ -985,6 +1100,21 @@ const DevisForm: React.FC = () => {
           </div>
         </form>
       </div>
+
+      {/* Styles pour les animations */}
+      <style>{`
+        @keyframes slideDown {
+          from {
+            transform: translateY(-100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
