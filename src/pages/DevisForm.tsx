@@ -658,7 +658,7 @@ const DevisForm: React.FC = () => {
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14h-2v-6h2v6zm0-8h-2V6h2v2zm6 6.59L14.59 16 12 13.41 13.41 12 16 14.59 17.59 13 19 14.41 17.59 15.8 19 17.19 17.59 18.59 16 17.19 14.41 18.59 13 17.19 14.41 15.8 13 14.41 14.41 13 17 15.59 18.59 14.19z" />
               </svg>
               <div>
-                <p className="font-medium">Installer l'application HARMONIA ÉQUILIBRE</p>
+                <p className="font-medium">Installer l'application de CREATION APS</p>
                 <p className="text-sm opacity-90">Installez cette application sur votre appareil pour un accès rapide et une utilisation hors ligne</p>
               </div>
             </div>
