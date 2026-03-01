@@ -11,9 +11,9 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "Caprice",
-        short_name: "Caprice",
-        description: "Boutique e-commerce Caprice",
+        name: "create APS",
+        short_name: "APS",
+        description: "application de création d'APS",
         theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",
