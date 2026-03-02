@@ -15,6 +15,7 @@ interface Page {
   materiels: Materiel[];
   images: string[];
   imageFiles?: File[];
+  pourcentage?: number; // Pourcentage optionnel par page
 }
 
 interface Bloc {
@@ -40,6 +41,7 @@ interface Client {
 interface DevisData {
   client: Client;
   blocs: Bloc[];
+  pourcentageGlobal?: number; // Pourcentage optionnel global
 }
 
 interface ApiResponse {
@@ -74,7 +76,8 @@ const DevisForm: React.FC = () => {
       intro: '',
       delai_realisation: ''
     },
-    blocs: []
+    blocs: [],
+    pourcentageGlobal: undefined
   });
 
   const [blocCounter, setBlocCounter] = useState<number>(0);
@@ -228,7 +231,8 @@ const DevisForm: React.FC = () => {
                 designation: '',
                 materiels: [],
                 images: [],
-                imageFiles: []
+                imageFiles: [],
+                pourcentage: undefined
               }
             ]
           };
@@ -360,6 +364,38 @@ const DevisForm: React.FC = () => {
     }));
   };
 
+  const handlePagePourcentageChange = (blocId: number, pageId: number, value: string): void => {
+    const pourcentage = value === '' ? undefined : parseFloat(value);
+    setFormData((prev: DevisData) => ({
+      ...prev,
+      blocs: prev.blocs.map((bloc: Bloc) => {
+        if (bloc.id === blocId) {
+          return {
+            ...bloc,
+            pages: bloc.pages.map((page: Page) => {
+              if (page.id === pageId) {
+                return {
+                  ...page,
+                  pourcentage: pourcentage
+                };
+              }
+              return page;
+            })
+          };
+        }
+        return bloc;
+      })
+    }));
+  };
+
+  const handlePourcentageGlobalChange = (value: string): void => {
+    const pourcentage = value === '' ? undefined : parseFloat(value);
+    setFormData((prev: DevisData) => ({
+      ...prev,
+      pourcentageGlobal: pourcentage
+    }));
+  };
+
   const handleMaterielChange = (blocId: number, pageId: number, materielId: number, field: keyof Materiel, value: string | number): void => {
     setFormData((prev: DevisData) => ({
       ...prev,
@@ -451,7 +487,15 @@ const DevisForm: React.FC = () => {
     return materiels.reduce((total: number, m: Materiel) => total + (m.pieces * m.prix), 0);
   };
 
-  const calculerTotalGeneral = (): number => {
+  const calculerTotalPageAvecPourcentage = (page: Page): number => {
+    const totalHT = calculerTotalPage(page.materiels);
+    if (page.pourcentage && page.pourcentage > 0) {
+      return totalHT * (1 + page.pourcentage / 100);
+    }
+    return totalHT;
+  };
+
+  const calculerTotalGeneralHT = (): number => {
     let total = 0;
     formData.blocs.forEach((bloc: Bloc) => {
       bloc.pages.forEach((page: Page) => {
@@ -459,6 +503,28 @@ const DevisForm: React.FC = () => {
       });
     });
     return total;
+  };
+
+  const calculerTotalGeneralTTC = (): number => {
+    let total = 0;
+    formData.blocs.forEach((bloc: Bloc) => {
+      bloc.pages.forEach((page: Page) => {
+        total += calculerTotalPageAvecPourcentage(page);
+      });
+    });
+
+    // Appliquer le pourcentage global si défini
+    if (formData.pourcentageGlobal && formData.pourcentageGlobal > 0) {
+      total = total * (1 + formData.pourcentageGlobal / 100);
+    }
+
+    return total;
+  };
+
+  const calculerMontantPourcentageGlobal = (): number => {
+    if (!formData.pourcentageGlobal || formData.pourcentageGlobal <= 0) return 0;
+    const totalHT = calculerTotalGeneralHT();
+    return totalHT * (formData.pourcentageGlobal / 100);
   };
 
   const prepareFormData = (): FormData => {
@@ -469,12 +535,22 @@ const DevisForm: React.FC = () => {
       formDataToSend.append(`client[${key}]`, value);
     });
 
+    // Ajouter le pourcentage global si défini
+    if (formData.pourcentageGlobal !== undefined) {
+      formDataToSend.append('pourcentage_global', formData.pourcentageGlobal.toString());
+    }
+
     formData.blocs.forEach((bloc, blocIndex) => {
       formDataToSend.append(`blocs[${blocIndex}][nom]`, bloc.nom);
 
       bloc.pages.forEach((page, pageIndex) => {
         formDataToSend.append(`blocs[${blocIndex}][pages][${pageIndex}][nom_travail]`, page.nom_travail);
         formDataToSend.append(`blocs[${blocIndex}][pages][${pageIndex}][designation]`, page.designation);
+
+        // Ajouter le pourcentage de la page si défini
+        if (page.pourcentage !== undefined) {
+          formDataToSend.append(`blocs[${blocIndex}][pages][${pageIndex}][pourcentage]`, page.pourcentage.toString());
+        }
 
         page.materiels.forEach((materiel, matIndex) => {
           formDataToSend.append(`blocs[${blocIndex}][pages][${pageIndex}][materiels][${matIndex}][nom]`, materiel.nom);
@@ -630,7 +706,8 @@ const DevisForm: React.FC = () => {
         intro: '',
         delai_realisation: ''
       },
-      blocs: []
+      blocs: [],
+      pourcentageGlobal: undefined
     });
     setBlocCounter(0);
   };
@@ -658,7 +735,7 @@ const DevisForm: React.FC = () => {
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14h-2v-6h2v6zm0-8h-2V6h2v2zm6 6.59L14.59 16 12 13.41 13.41 12 16 14.59 17.59 13 19 14.41 17.59 15.8 19 17.19 17.59 18.59 16 17.19 14.41 18.59 13 17.19 14.41 15.8 13 14.41 14.41 13 17 15.59 18.59 14.19z" />
               </svg>
               <div>
-                <p className="font-medium">Installer l'application de CREATION APS</p>
+                <p className="font-medium">Installer l'application HARMONIA ÉQUILIBRE</p>
                 <p className="text-sm opacity-90">Installez cette application sur votre appareil pour un accès rapide et une utilisation hors ligne</p>
               </div>
             </div>
@@ -825,6 +902,55 @@ const DevisForm: React.FC = () => {
             </div>
           </div>
 
+          {/* Section Pourcentage Global */}
+          <div className="rounded-2xl shadow-xl p-8 border" style={{ backgroundColor: '#FFFFFF', borderColor: '#C89B66' }}>
+            <div className="flex items-center mb-6 pb-4 border-b" style={{ borderColor: '#F5F1EB' }}>
+              <div className="w-12 h-12 rounded-full text-white flex items-center justify-center mr-4" style={{ backgroundColor: '#8A9A5B' }}>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 14l6-6m-5.5 0h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-serif font-semibold" style={{ color: '#333333' }}>
+                Pourcentage Global (Optionnel)
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#333333' }}>
+                  Pourcentage à appliquer sur le total
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    value={formData.pourcentageGlobal ?? ''}
+                    onChange={(e) => handlePourcentageGlobalChange(e.target.value)}
+                    placeholder="Ex: 10"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    className="w-full px-4 py-3 border rounded-lg transition focus:ring-2 focus:border-transparent"
+                    style={{ borderColor: '#C89B66', backgroundColor: '#FFFFFF', color: '#333333' }}
+                  />
+                  <span className="ml-2 text-lg font-medium" style={{ color: '#333333' }}>%</span>
+                </div>
+                <p className="text-xs mt-1" style={{ color: '#666666' }}>
+                  Laissez vide pour ne pas appliquer de pourcentage global
+                </p>
+              </div>
+              {formData.pourcentageGlobal && formData.pourcentageGlobal > 0 && (
+                <div className="flex items-end pb-3">
+                  <div>
+                    <p className="text-sm mb-1" style={{ color: '#333333' }}>Montant du pourcentage global</p>
+                    <p className="text-xl font-bold" style={{ color: '#8A9A5B' }}>
+                      {calculerMontantPourcentageGlobal().toLocaleString()} FCFA
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Section Blocs */}
           <div className="space-y-6">
             {formData.blocs.map((bloc: Bloc, blocIndex: number) => (
@@ -894,6 +1020,27 @@ const DevisForm: React.FC = () => {
                           className="w-full px-3 py-2 border rounded-lg"
                           style={{ borderColor: '#C89B66', backgroundColor: '#FFFFFF', color: '#333333' }}
                         />
+                      </div>
+
+                      {/* Pourcentage par page */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium mb-1" style={{ color: '#333333' }}>
+                          Pourcentage spécifique à cette page (optionnel)
+                        </label>
+                        <div className="flex items-center">
+                          <input
+                            type="number"
+                            value={page.pourcentage ?? ''}
+                            onChange={(e) => handlePagePourcentageChange(bloc.id, page.id, e.target.value)}
+                            placeholder="Ex: 5"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            className="w-32 px-3 py-2 border rounded-lg"
+                            style={{ borderColor: '#C89B66', backgroundColor: '#FFFFFF', color: '#333333' }}
+                          />
+                          <span className="ml-2 text-sm" style={{ color: '#333333' }}>%</span>
+                        </div>
                       </div>
 
                       <div className="mb-3">
@@ -993,11 +1140,21 @@ const DevisForm: React.FC = () => {
                       </div>
 
                       <div className="mt-3 pt-2 border-t" style={{ borderColor: '#C89B66' }}>
-                        <div className="text-right">
-                          <span className="text-sm font-medium" style={{ color: '#333333' }}>Total page: </span>
-                          <span className="text-lg font-bold" style={{ color: '#8B5A2B' }}>
-                            {calculerTotalPage(page.materiels).toLocaleString()} FCFA
-                          </span>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="text-sm font-medium" style={{ color: '#333333' }}>Total HT: </span>
+                            <span className="text-base font-bold" style={{ color: '#8B5A2B' }}>
+                              {calculerTotalPage(page.materiels).toLocaleString()} FCFA
+                            </span>
+                          </div>
+                          {page.pourcentage && page.pourcentage > 0 && (
+                            <div>
+                              <span className="text-sm font-medium" style={{ color: '#333333' }}>Total TTC (+{page.pourcentage}%): </span>
+                              <span className="text-lg font-bold" style={{ color: '#8A9A5B' }}>
+                                {calculerTotalPageAvecPourcentage(page).toLocaleString()} FCFA
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1039,10 +1196,25 @@ const DevisForm: React.FC = () => {
           <div className="rounded-2xl shadow-xl p-8 border" style={{ backgroundColor: '#FFFFFF', borderColor: '#C89B66' }}>
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
               <div className="text-center md:text-left">
-                <p className="text-sm mb-1" style={{ color: '#333333' }}>TOTAL GÉNÉRAL</p>
-                <p className="text-4xl font-bold" style={{ color: '#8B5A2B' }}>
-                  {calculerTotalGeneral().toLocaleString()} FCFA
+                <p className="text-sm mb-1" style={{ color: '#333333' }}>TOTAL GÉNÉRAL HT</p>
+                <p className="text-2xl font-bold" style={{ color: '#8B5A2B' }}>
+                  {calculerTotalGeneralHT().toLocaleString()} FCFA
                 </p>
+                {formData.pourcentageGlobal && formData.pourcentageGlobal > 0 && (
+                  <>
+                    <p className="text-sm mt-2 mb-1" style={{ color: '#333333' }}>
+                      +{formData.pourcentageGlobal}% global
+                    </p>
+                    <p className="text-3xl font-bold" style={{ color: '#8A9A5B' }}>
+                      {calculerTotalGeneralTTC().toLocaleString()} FCFA TTC
+                    </p>
+                  </>
+                )}
+                {!formData.pourcentageGlobal && (
+                  <p className="text-xs mt-1" style={{ color: '#666666' }}>
+                    *Pourcentage global non appliqué
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-8">
